@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OmyTalk — Talk to someone you don't know.</title>
+    <title>OmyTalk — Live WebRTC Video & Text Chat</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -13,95 +13,38 @@
           extend: {
             colors: {
               brand: {
-                50: '#eef2ff',
-                100: '#e0e7ff',
-                400: '#818cf8',
                 500: '#6366f1',
                 600: '#4f46e5',
                 700: '#4338ca',
-                900: '#312e81',
-              },
-              neon: {
-                cyan: '#06b6d4',
-                emerald: '#10b981',
-                rose: '#f43f5e',
-                amber: '#f59e0b',
               },
               darkbg: '#07090E',
               darkcard: '#0F1523',
               darkborder: '#1E293B',
-            },
-            fontFamily: {
-              sans: ['Inter', 'system-ui', 'sans-serif'],
-              mono: ['Fira Code', 'monospace']
-            },
-            animation: {
-              'radar-pulse': 'radar 2s cubic-bezier(0, 0, 0.2, 1) infinite',
-              'glow-pulse': 'glow 1.5s ease-in-out infinite alternate',
-            },
-            keyframes: {
-              radar: {
-                '0%': { transform: 'scale(0.8)', opacity: '0.8' },
-                '100%': { transform: 'scale(2.2)', opacity: '0' },
-              },
-              glow: {
-                '0%': { boxShadow: '0 0 15px rgba(99, 102, 241, 0.3)' },
-                '100%': { boxShadow: '0 0 30px rgba(99, 102, 241, 0.7)' }
-              }
             }
           }
         }
       }
     </script>
-    <!-- Google Fonts Inter & Fira Code -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
-    <!-- React & Babel CDNs -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <!-- React, ReactDOM, Babel, Socket.io, Lucide Icons -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Socket.io Client CDN -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #07090E;
-        color: #F1F5F9;
-        overflow-x: hidden;
-      }
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #07090E;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #1E293B;
-        border-radius: 9999px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #334155;
-      }
-      .glass-panel {
-        background: rgba(15, 21, 35, 0.85);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-      }
+      body { font-family: 'Inter', sans-serif; background-color: #07090E; color: #F1F5F9; }
+      video { background-color: #000; object-fit: cover; }
     </style>
 </head>
-<body class="bg-darkbg text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white">
-
+<body class="bg-darkbg text-slate-100 min-h-screen">
     <div id="root"></div>
 
     <script type="text/babel">
-      // CONFIGURATION: Replace this URL with your live deployed Render backend URL once deployed in Step 2!
+      // YOUR LIVE RENDER BACKEND URL
       const BACKEND_URL = "https://omytalk-backend.onrender.com";
 
-      // STUN Server Configuration for WebRTC Peer Discovery
+      // STUN SERVERS FOR WEBRTC NAT TRAVERSAL
       const ICE_SERVERS = {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -109,239 +52,171 @@
         ]
       };
 
-      // Web Audio API Synthesizer Chimes
-      const playChime = (type = 'pop') => {
-        try {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          if (type === 'match_start') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(300, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.3);
-          } else if (type === 'connected') {
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(523.25, ctx.currentTime);
-            osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.12, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.25);
-          } else if (type === 'send') {
-            osc.frequency.setValueAtTime(440, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.12);
-          } else if (type === 'receive') {
-            osc.frequency.setValueAtTime(700, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.15);
-            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.15);
-          } else if (type === 'skip') {
-            osc.frequency.setValueAtTime(350, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.15);
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.15);
-          }
-        } catch (e) {}
-      };
-
-      const TOPICS_LIST = [
-        'Technology', 'Gaming', 'Music', 'Movies', 'College', 
-        'Programming', 'Startups', 'Sports', 'Travel', 'Fitness', 
-        'Books', 'Art', 'Photography', 'Life Advice', 'Random'
-      ];
-
-      const COMMUNITY_HUBS = [
-        { id: 'comm_devs', name: 'Developers & Hackers', online: 3420, icon: 'code', tag: 'Programming', desc: 'Connect with devs, review code ideas, discuss frameworks.' },
-        { id: 'comm_college', name: 'College & University Life', online: 5810, icon: 'graduation-cap', tag: 'College', desc: 'Exams, career advice, dorm life, and study hacks.' },
-        { id: 'comm_ai', name: 'AI & Future Tech', online: 2940, icon: 'bot', tag: 'Technology', desc: 'LLMs, web GPU, robotics, and edge AI discussions.' },
-        { id: 'comm_startups', name: 'Indie Hackers & Startups', online: 1890, icon: 'rocket', tag: 'Startups', desc: 'Share project MVPs, marketing ideas, and feedback.' },
-        { id: 'comm_gaming', name: 'Gamers Lounge', online: 7120, icon: 'gamepad-2', tag: 'Gaming', desc: 'Steam games, esports, co-op partners, and setup flex.' }
-      ];
-
       const { useState, useEffect, useRef } = React;
 
-      // Safe isolated Lucide Icon renderer wrapper
-      function LucideIcon({ name, className = "w-4 h-4" }) {
+      // Safe Lucide Icon Wrapper Component
+      function Icon({ name, className = "w-4 h-4" }) {
         const spanRef = useRef(null);
-
         useEffect(() => {
           if (spanRef.current && window.lucide) {
             spanRef.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
             window.lucide.createIcons({ root: spanRef.current });
           }
         }, [name, className]);
-
         return <span ref={spanRef} className="inline-flex items-center justify-center shrink-0" />;
       }
 
-      function OmyTalkApp() {
-        const [viewMode, setViewMode] = useState('home');
-        const [activeChatType, setActiveChatType] = useState('text');
-        const [selectedInterests, setSelectedInterests] = useState(['Technology', 'Gaming']);
-        const [onlineCount, setOnlineCount] = useState(24819);
-
-        // Chat & Matchmaking State
-        const [matchStatus, setMatchStatus] = useState('idle'); // 'searching' | 'connected' | 'disconnected'
+      function App() {
+        const [viewMode, setViewMode] = useState('home'); // 'home' | 'matching' | 'video_chat' | 'text_chat'
+        const [chatType, setChatType] = useState('video');
+        const [onlineCount, setOnlineCount] = useState(1);
+        const [isBackendConnected, setIsBackendConnected] = useState(false);
+        const [matchStatus, setMatchStatus] = useState('idle'); // 'searching' | 'connected'
         const [currentRoomId, setCurrentRoomId] = useState(null);
-        const [messages, setMessages] = useState([]);
-        const [inputMessage, setInputMessage] = useState('');
-        const [sessionSeconds, setSessionSeconds] = useState(0);
 
-        // Media Controls
+        // Media Stream & Peer State
+        const [localStream, setLocalStream] = useState(null);
+        const [remoteStream, setRemoteStream] = useState(null);
         const [isMuted, setIsMuted] = useState(false);
         const [isVideoOff, setIsVideoOff] = useState(false);
-        const [webcamActive, setWebcamActive] = useState(false);
 
-        // Modals & UI
-        const [reportModalOpen, setReportModalOpen] = useState(false);
-        const [reportReason, setReportReason] = useState('Inappropriate behavior');
-        const [toastMessage, setToastMessage] = useState(null);
+        // Messaging
+        const [messages, setMessages] = useState([]);
+        const [inputMessage, setInputMessage] = useState('');
 
-        // WebRTC & Socket Refs
+        // Socket & Peer Refs
         const socketRef = useRef(null);
-        const peerConnectionRef = useRef(null);
-        const localStreamRef = useRef(null);
-        const userVideoRef = useRef(null);
-        const strangerVideoRef = useRef(null);
-        const chatEndRef = useRef(null);
-        const timerRef = useRef(null);
+        const pcRef = useRef(null);
+        const localVideoRef = useRef(null);
+        const remoteVideoRef = useRef(null);
+        const pendingCandidates = useRef([]);
 
-        const showToast = (msg) => {
-          setToastMessage(msg);
-          setTimeout(() => setToastMessage(null), 3500);
-        };
-
-        // Initialize Socket.io Connection
         useEffect(() => {
-          try {
-            const socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
-            socketRef.current = socket;
+          const socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
+          socketRef.current = socket;
 
-            socket.on('connect', () => {
-              console.log('Connected to OmyTalk Signaling Backend:', socket.id);
-            });
+          socket.on('connect', () => {
+            console.log('Connected to Render Backend Socket:', socket.id);
+            setIsBackendConnected(true);
+          });
 
-            socket.on('waiting', (data) => {
-              setMatchStatus('searching');
-            });
+          socket.on('disconnect', () => {
+            setIsBackendConnected(false);
+          });
 
-            socket.on('matched', async ({ roomId, isInitiator, strangerId }) => {
-              console.log('Matched in room:', roomId, 'isInitiator:', isInitiator);
-              setCurrentRoomId(roomId);
-              setMatchStatus('connected');
-              playChime('connected');
+          socket.on('online_count', ({ count }) => {
+            setOnlineCount(count);
+          });
 
-              setMessages([
-                { id: 'sys_1', sender: 'system', text: `Connected with a real Stranger! Say hello.` }
-              ]);
+          socket.on('waiting', () => {
+            setMatchStatus('searching');
+          });
 
-              // If Video mode, establish WebRTC peer connection
-              if (activeChatType === 'video') {
-                await setupPeerConnection(roomId, isInitiator);
-              }
-            });
+          socket.on('matched', async ({ roomId, isInitiator }) => {
+            console.log('MATCHED! Room ID:', roomId, 'Is Initiator:', isInitiator);
+            setCurrentRoomId(roomId);
+            setMatchStatus('connected');
 
-            socket.on('signal', async ({ signalData }) => {
-              if (peerConnectionRef.current) {
-                if (signalData.type === 'offer') {
-                  await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signalData));
-                  const answer = await peerConnectionRef.current.createAnswer();
-                  await peerConnectionRef.current.setLocalDescription(answer);
-                  socketRef.current.emit('signal', { roomId: currentRoomId, signalData: answer });
-                } else if (signalData.type === 'answer') {
-                  await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signalData));
-                } else if (signalData.candidate) {
-                  await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+            if (chatType === 'video') {
+              setViewMode('video_chat');
+              await initWebRTC(roomId, isInitiator);
+            } else {
+              setViewMode('text_chat');
+            }
+          });
+
+          socket.on('signal', async ({ signalData }) => {
+            if (!pcRef.current) return;
+
+            try {
+              if (signalData.type === 'offer') {
+                await pcRef.current.setRemoteDescription(new RTCSessionDescription(signalData));
+                
+                // Process pending ICE candidates that arrived early
+                while (pendingCandidates.current.length > 0) {
+                  const candidate = pendingCandidates.current.shift();
+                  await pcRef.current.addIceCandidate(candidate);
+                }
+
+                const answer = await pcRef.current.createAnswer();
+                await pcRef.current.setLocalDescription(answer);
+                socketRef.current.emit('signal', { roomId: currentRoomId, signalData: answer });
+
+              } else if (signalData.type === 'answer') {
+                await pcRef.current.setRemoteDescription(new RTCSessionDescription(signalData));
+
+              } else if (signalData.candidate) {
+                const candidate = new RTCIceCandidate(signalData.candidate);
+                if (pcRef.current.remoteDescription && pcRef.current.remoteDescription.type) {
+                  await pcRef.current.addIceCandidate(candidate);
+                } else {
+                  pendingCandidates.current.push(candidate);
                 }
               }
-            });
+            } catch (err) {
+              console.error('WebRTC Signaling Exception:', err);
+            }
+          });
 
-            socket.on('receive_message', (msgObj) => {
-              playChime('receive');
-              setMessages(prev => [...prev, msgObj]);
-            });
+          socket.on('receive_message', (msg) => {
+            setMessages(prev => [...prev, msg]);
+          });
 
-            socket.on('stranger_disconnected', () => {
-              playChime('skip');
-              showToast('Stranger disconnected. Press NEXT to find someone new.');
-              setMessages(prev => [...prev, { id: 'sys_disc_' + Date.now(), sender: 'system', text: 'Stranger left the conversation.' }]);
-              closePeerConnection();
-            });
-
-          } catch (e) {
-            console.log('Backend offline or fallback simulation mode active.');
-          }
+          socket.on('stranger_disconnected', () => {
+            alert('Stranger disconnected. Searching for next person...');
+            cleanupPeerConnection();
+            startMatchmaking(chatType);
+          });
 
           return () => {
-            if (socketRef.current) socketRef.current.disconnect();
+            socket.disconnect();
           };
-        }, [activeChatType, currentRoomId]);
+        }, [chatType, currentRoomId]);
 
-        // Auto Scroll Chat
         useEffect(() => {
-          if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }, [messages]);
-
-        // Chat Timer Counter
-        useEffect(() => {
-          if (matchStatus === 'connected') {
-            timerRef.current = setInterval(() => setSessionSeconds(p => p + 1), 1000);
-          } else {
-            clearInterval(timerRef.current);
-            setSessionSeconds(0);
+          if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
           }
-          return () => clearInterval(timerRef.current);
-        }, [matchStatus]);
+        }, [localStream, viewMode]);
 
-        // WebRTC Setup Function
-        const setupPeerConnection = async (roomId, isInitiator) => {
-          closePeerConnection();
+        useEffect(() => {
+          if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+          }
+        }, [remoteStream, viewMode]);
+
+        const initWebRTC = async (roomId, isInitiator) => {
+          cleanupPeerConnection();
 
           const pc = new RTCPeerConnection(ICE_SERVERS);
-          peerConnectionRef.current = pc;
+          pcRef.current = pc;
 
-          // Obtain local media stream if not active
-          if (!localStreamRef.current) {
+          // Request Real Camera & Microphone
+          let stream = localStream;
+          if (!stream) {
             try {
-              const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-              localStreamRef.current = stream;
-              if (userVideoRef.current) userVideoRef.current.srcObject = stream;
-              setWebcamActive(true);
+              stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+              setLocalStream(stream);
             } catch (err) {
-              showToast('Could not access local camera or microphone.');
+              alert('Camera / Microphone permission denied or not available.');
+              return;
             }
           }
 
-          // Attach tracks to Peer Connection
-          if (localStreamRef.current) {
-            localStreamRef.current.getTracks().forEach(track => {
-              pc.addTrack(track, localStreamRef.current);
-            });
-          }
+          // Add Local Audio & Video Tracks to Connection
+          stream.getTracks().forEach(track => {
+            pc.addTrack(track, stream);
+          });
 
-          // Handle incoming remote video stream track from stranger
+          // Handle Remote Stream Tracks Received from Stranger
           pc.ontrack = (event) => {
-            if (strangerVideoRef.current && event.streams[0]) {
-              strangerVideoRef.current.srcObject = event.streams[0];
+            console.log('Received remote media stream track from Stranger!');
+            if (event.streams && event.streams[0]) {
+              setRemoteStream(event.streams[0]);
             }
           };
 
-          // Handle ICE Candidates
+          // Send Local ICE Candidates to Stranger via Signaling Backend
           pc.onicecandidate = (event) => {
             if (event.candidate && socketRef.current) {
               socketRef.current.emit('signal', {
@@ -351,7 +226,7 @@
             }
           };
 
-          // If Initiator, create SDP offer
+          // If initiator, create Offer
           if (isInitiator) {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
@@ -359,325 +234,240 @@
           }
         };
 
-        const closePeerConnection = () => {
-          if (peerConnectionRef.current) {
-            peerConnectionRef.current.close();
-            peerConnectionRef.current = null;
+        const cleanupPeerConnection = () => {
+          if (pcRef.current) {
+            pcRef.current.close();
+            pcRef.current = null;
           }
-          if (strangerVideoRef.current) {
-            strangerVideoRef.current.srcObject = null;
-          }
+          setRemoteStream(null);
+          pendingCandidates.current = [];
         };
 
-        const startMatchmaking = (type = 'text') => {
-          playChime('match_start');
-          setActiveChatType(type);
+        const startMatchmaking = async (type) => {
+          setChatType(type);
           setViewMode('matching');
           setMatchStatus('searching');
           setMessages([]);
-          closePeerConnection();
+          cleanupPeerConnection();
 
-          if (type === 'video') {
-            startWebcam();
+          // Get camera access early if video mode
+          if (type === 'video' && !localStream) {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+              setLocalStream(stream);
+            } catch (e) {
+              alert('Please grant camera and microphone access to continue.');
+              setViewMode('home');
+              return;
+            }
           }
 
           if (socketRef.current && socketRef.current.connected) {
-            socketRef.current.emit('join_queue', { mode: type, interests: selectedInterests });
-          } else {
-            // Simulated matchmaking fallback if backend server is not connected
-            setTimeout(() => {
-              setMatchStatus('connected');
-              setViewMode(type === 'video' ? 'video_chat' : 'text_chat');
-              playChime('connected');
-              setMessages([
-                { id: 'sys_1', sender: 'system', text: `Connected with Stranger (Simulated). Say hi!` },
-                { id: 'stranger_hello', sender: 'stranger', text: 'Hey there! How is your day going?', time: 'Just now' }
-              ]);
-            }, 1800);
+            socketRef.current.emit('join_queue', { mode: type, interests: [] });
           }
         };
 
         const nextStranger = () => {
-          playChime('skip');
-          closePeerConnection();
-          if (socketRef.current && socketRef.current.connected) {
-            socketRef.current.emit('leave_match');
-          }
-          startMatchmaking(activeChatType);
+          cleanupPeerConnection();
+          if (socketRef.current) socketRef.current.emit('leave_match');
+          startMatchmaking(chatType);
         };
 
-        const stopConversation = () => {
-          playChime('skip');
-          closePeerConnection();
-          stopWebcam();
-          if (socketRef.current && socketRef.current.connected) {
-            socketRef.current.emit('leave_match');
+        const stopChat = () => {
+          cleanupPeerConnection();
+          if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            setLocalStream(null);
           }
-          setMatchStatus('disconnected');
+          if (socketRef.current) socketRef.current.emit('leave_match');
           setViewMode('home');
+          setMatchStatus('idle');
         };
 
         const handleSendMessage = (e) => {
-          if (e) e.preventDefault();
-          if (!inputMessage.trim() || matchStatus !== 'connected') return;
+          e.preventDefault();
+          if (!inputMessage.trim()) return;
 
-          playChime('send');
-          const text = inputMessage;
-          const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const msgObj = { text: inputMessage, sender: 'you', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+          setMessages(prev => [...prev, msgObj]);
 
-          setMessages(prev => [...prev, { id: 'm_you_' + Date.now(), sender: 'you', text, time }]);
+          if (socketRef.current && currentRoomId) {
+            socketRef.current.emit('send_message', { roomId: currentRoomId, message: inputMessage });
+          }
           setInputMessage('');
+        };
 
-          if (socketRef.current && socketRef.current.connected && currentRoomId) {
-            socketRef.current.emit('send_message', { roomId: currentRoomId, message: text });
+        const toggleMute = () => {
+          if (localStream) {
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+              audioTrack.enabled = !audioTrack.enabled;
+              setIsMuted(!audioTrack.enabled);
+            }
           }
         };
 
-        const startWebcam = async () => {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            localStreamRef.current = stream;
-            if (userVideoRef.current) userVideoRef.current.srcObject = stream;
-            setWebcamActive(true);
-          } catch (err) {
-            console.log('Camera access denied or unavailable.');
+        const toggleVideo = () => {
+          if (localStream) {
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+              videoTrack.enabled = !videoTrack.enabled;
+              setIsVideoOff(!videoTrack.enabled);
+            }
           }
-        };
-
-        const stopWebcam = () => {
-          if (localStreamRef.current) {
-            localStreamRef.current.getTracks().forEach(track => track.stop());
-            localStreamRef.current = null;
-          }
-          setWebcamActive(false);
-        };
-
-        const toggleInterest = (topic) => {
-          playChime('pop');
-          if (selectedInterests.includes(topic)) {
-            if (selectedInterests.length > 1) setSelectedInterests(selectedInterests.filter(t => t !== topic));
-          } else {
-            setSelectedInterests([...selectedInterests, topic]);
-          }
-        };
-
-        const formatTimer = (secs) => {
-          const m = Math.floor(secs / 60);
-          const s = secs % 60;
-          return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         };
 
         return (
-          <div className="min-h-screen bg-darkbg text-slate-100 flex flex-col justify-between">
+          <div className="min-h-screen flex flex-col justify-between bg-darkbg text-slate-100">
             {/* Header */}
-            <header className="sticky top-0 z-40 bg-darkcard/90 backdrop-blur-md border-b border-darkborder px-4 lg:px-8 py-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div onClick={stopConversation} className="flex items-center gap-3 cursor-pointer group">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-extrabold text-xl shadow-lg text-white group-hover:scale-105 transition-transform">
-                    O
-                  </div>
-                  <div>
-                    <span className="font-black text-xl tracking-tight text-white flex items-center gap-2">
-                      OmyTalk
-                      <span className="text-[10px] font-bold uppercase bg-brand-500/20 text-brand-400 px-2 py-0.5 rounded border border-brand-500/30">
-                        WEBRTC LIVE
-                      </span>
-                    </span>
-                    <span className="text-[11px] text-slate-400 block -mt-1 font-medium">Talk to someone you don't know.</span>
-                  </div>
+            <header className="border-b border-darkborder px-6 py-4 flex items-center justify-between bg-darkcard">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={stopChat}>
+                <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center font-black text-lg text-white">
+                  O
                 </div>
-
-                <div className="hidden sm:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                  <span>{onlineCount.toLocaleString()} strangers online</span>
+                <div>
+                  <h1 className="font-extrabold text-lg tracking-tight">OmyTalk</h1>
+                  <p className="text-[10px] text-slate-400 font-medium">Real-Time WebRTC P2P Video</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-4">
-                <button onClick={() => setViewMode('home')} className={`px-3 py-2 rounded-xl text-xs font-semibold ${viewMode === 'home' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>
-                  Random Chat
-                </button>
-                <button onClick={() => setViewMode('communities')} className={`px-3 py-2 rounded-xl text-xs font-semibold ${viewMode === 'communities' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>
-                  Communities
-                </button>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  {onlineCount} {onlineCount === 1 ? 'stranger online' : 'strangers online'}
+                </span>
+
+                <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase ${isBackendConnected ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
+                  {isBackendConnected ? 'Server Online' : 'Connecting Server...'}
+                </span>
               </div>
             </header>
 
-            {/* Main Workspace */}
-            <main className="flex-1 flex flex-col">
-              {/* Homepage */}
+            {/* Main Content Area */}
+            <main className="flex-1 flex flex-col justify-center items-center p-4">
+              
+              {/* Homepage View */}
               {viewMode === 'home' && (
-                <div className="max-w-6xl mx-auto w-full px-4 lg:px-8 py-10 flex-1 flex flex-col justify-center items-center text-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-semibold mb-6">
-                    <LucideIcon name="sparkles" className="w-4 h-4 text-brand-400" />
-                    WebRTC Peer-to-Peer Encrypted Connections
-                  </div>
-
-                  <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white max-w-3xl leading-tight">
-                    Talk to someone <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 via-indigo-300 to-neon-cyan">completely new.</span>
-                  </h1>
-
-                  <p className="mt-4 text-base sm:text-lg text-slate-400 max-w-xl leading-relaxed">
-                    Connect face-to-face or via text instantly with users worldwide without login or algorithms.
+                <div className="max-w-2xl text-center py-12">
+                  <h2 className="text-4xl sm:text-5xl font-black text-white tracking-tight">
+                    Talk to someone <span className="text-brand-500">completely new.</span>
+                  </h2>
+                  <p className="mt-4 text-slate-400 text-sm sm:text-base">
+                    Direct camera-to-camera P2P video and text chat with real strangers worldwide.
                   </p>
 
-                  <div className="mt-8 flex flex-wrap justify-center gap-4">
-                    <button onClick={() => startMatchmaking('text')} className="bg-brand-600 hover:bg-brand-500 text-white px-8 py-4 rounded-2xl font-extrabold text-base shadow-xl flex items-center gap-3">
-                      <LucideIcon name="zap" className="w-5 h-5 fill-white" />
-                      Start Text Chat
-                    </button>
-
-                    <button onClick={() => startMatchmaking('video')} className="bg-slate-900 hover:bg-slate-800 text-slate-100 border border-slate-700 px-7 py-4 rounded-2xl font-bold text-base flex items-center gap-2.5">
-                      <LucideIcon name="video" className="w-5 h-5 text-neon-cyan" />
+                  <div className="mt-8 flex justify-center gap-4">
+                    <button onClick={() => startMatchmaking('video')} className="bg-brand-600 hover:bg-brand-500 text-white font-extrabold px-8 py-4 rounded-2xl flex items-center gap-2 text-base shadow-lg">
+                      <Icon name="video" className="w-5 h-5" />
                       Start Video Chat
                     </button>
-                  </div>
-
-                  {/* Topic Selectors */}
-                  <div className="mt-12 w-full max-w-3xl bg-darkcard border border-darkborder rounded-3xl p-6 shadow-2xl text-left">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
-                      <LucideIcon name="sliders" className="w-4 h-4 text-brand-400" />
-                      What do you want to talk about? (Optional)
-                    </h3>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {TOPICS_LIST.map(topic => (
-                        <button
-                          key={topic}
-                          onClick={() => toggleInterest(topic)}
-                          className={`px-3.5 py-2 rounded-xl text-xs font-semibold ${
-                            selectedInterests.includes(topic)
-                              ? 'bg-brand-600 text-white'
-                              : 'bg-slate-900 border border-slate-800 text-slate-400'
-                          }`}>
-                          {topic}
-                        </button>
-                      ))}
-                    </div>
+                    <button onClick={() => startMatchmaking('text')} className="bg-slate-900 border border-slate-800 text-slate-200 font-bold px-6 py-4 rounded-2xl flex items-center gap-2 text-base">
+                      <Icon name="message-square" className="w-5 h-5" />
+                      Start Text Chat
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Matchmaking Screen */}
+              {/* Matchmaking Radar View */}
               {viewMode === 'matching' && (
-                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                  <div className="relative mb-10 flex items-center justify-center">
-                    <div className="absolute w-40 h-40 rounded-full bg-brand-500/20 animate-radar-pulse"></div>
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center text-white shadow-2xl relative z-10 animate-glow-pulse">
-                      <LucideIcon name="compass" className="w-12 h-12 animate-spin" />
-                    </div>
+                <div className="text-center py-16 flex flex-col items-center">
+                  <div className="w-20 h-20 rounded-full bg-brand-600/20 flex items-center justify-center animate-pulse mb-6 border border-brand-500/40">
+                    <Icon name="loader" className="w-10 h-10 text-brand-500 animate-spin" />
                   </div>
-                  <h2 className="text-2xl font-black text-white">Finding someone to talk to...</h2>
-                  <p className="text-xs text-slate-400 mt-2">Connecting with server queue...</p>
-                  <button onClick={stopConversation} className="mt-6 bg-slate-900 border border-slate-800 text-slate-300 px-6 py-2.5 rounded-xl text-xs font-semibold">
+                  <h3 className="text-xl font-bold text-white">Searching for an available stranger...</h3>
+                  <p className="text-xs text-slate-400 mt-2">Open another browser window or mobile phone to pair instantly!</p>
+                  <button onClick={stopChat} className="mt-6 bg-slate-900 border border-slate-800 text-slate-400 px-5 py-2 rounded-xl text-xs font-semibold">
                     Cancel Search
                   </button>
                 </div>
               )}
 
-              {/* Text Chat Mode */}
-              {viewMode === 'text_chat' && (
-                <div className="max-w-4xl mx-auto w-full px-4 py-4 flex-1 flex flex-col">
-                  <div className="bg-darkcard border border-darkborder rounded-2xl p-4 mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300 font-bold border border-slate-700">
-                        <LucideIcon name="user" className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <span className="font-extrabold text-sm text-white">Stranger</span>
-                        <span className="text-[10px] text-slate-500 font-mono ml-3">{formatTimer(sessionSeconds)}</span>
-                      </div>
-                    </div>
-                    <button onClick={() => setReportModalOpen(true)} className="p-2 text-slate-400 hover:text-red-400">
-                      <LucideIcon name="flag" className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="flex-1 bg-darkcard/50 border border-darkborder rounded-2xl p-4 overflow-y-auto space-y-3 min-h-[350px]">
-                    {messages.map((msg) => (
-                      <div key={msg.id} className={`flex flex-col ${msg.sender === 'you' ? 'items-end' : 'items-start'}`}>
-                        {msg.sender === 'system' ? (
-                          <div className="w-full text-center my-2 text-[11px] text-slate-400 bg-slate-900/60 py-1.5 rounded-xl">
-                            {msg.text}
-                          </div>
-                        ) : (
-                          <div className={`max-w-md px-4 py-2.5 rounded-2xl text-xs ${
-                            msg.sender === 'you' ? 'bg-brand-600 text-white' : 'bg-slate-900 border border-slate-800 text-slate-200'
-                          }`}>
-                            {msg.text}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    <div ref={chatEndRef} />
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-3">
-                    <button onClick={nextStranger} className="bg-brand-600 hover:bg-brand-500 text-white px-5 py-3 rounded-xl font-black text-xs">
-                      NEXT STRANGER
-                    </button>
-                    <button onClick={stopConversation} className="bg-slate-900 text-slate-300 border border-slate-800 px-4 py-3 rounded-xl font-bold text-xs">
-                      Stop
-                    </button>
-                    <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Type a message..."
-                        value={inputMessage}
-                        onChange={(e) => setInputMessage(e.target.value)}
-                        className="flex-1 bg-darkcard border border-darkborder text-xs text-white px-4 py-3 rounded-xl focus:outline-none"
-                      />
-                      <button type="submit" className="bg-slate-800 text-white p-3 rounded-xl">
-                        <LucideIcon name="send" className="w-4 h-4" />
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              )}
-
-              {/* Video Chat Mode */}
+              {/* Real WebRTC Video Chat View */}
               {viewMode === 'video_chat' && (
-                <div className="max-w-5xl mx-auto w-full px-4 py-4 flex-1 flex flex-col justify-between">
-                  <div className="grid md:grid-cols-2 gap-4 flex-1 min-h-[420px]">
-                    {/* Stranger Video Container */}
-                    <div className="bg-darkcard border border-darkborder rounded-2xl overflow-hidden relative flex items-center justify-center bg-slate-950">
-                      <video ref={strangerVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
-                      <div className="absolute top-4 left-4 bg-black/60 px-3 py-1.5 rounded-xl text-xs font-bold">
-                        Stranger Video (WebRTC)
-                      </div>
-                      <div className="absolute bottom-4 right-4 bg-black/60 px-3 py-1 rounded-lg text-xs font-mono text-slate-400">
-                        {formatTimer(sessionSeconds)}
+                <div className="w-full max-w-5xl flex flex-col gap-4">
+                  <div className="grid md:grid-cols-2 gap-4 h-[420px]">
+                    {/* Stranger Video Pane */}
+                    <div className="bg-darkcard border border-darkborder rounded-2xl overflow-hidden relative flex items-center justify-center">
+                      <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                      {!remoteStream && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 text-slate-400 text-xs font-semibold gap-2">
+                          <Icon name="loader-2" className="w-6 h-6 animate-spin text-brand-500" />
+                          <span>Connecting WebRTC Video Stream...</span>
+                        </div>
+                      )}
+                      <div className="absolute top-3 left-3 bg-black/60 px-3 py-1 rounded-lg text-xs font-bold text-slate-200 border border-white/10">
+                        Stranger (WebRTC Live)
                       </div>
                     </div>
 
-                    {/* Self Local Video Container */}
-                    <div className="bg-darkcard border border-darkborder rounded-2xl overflow-hidden relative flex items-center justify-center bg-slate-950">
-                      <video ref={userVideoRef} autoPlay playsInline muted className="w-full h-full object-cover transform -scale-x-100"></video>
-                      <div className="absolute top-4 left-4 bg-black/60 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300">
+                    {/* Local User Video Pane */}
+                    <div className="bg-darkcard border border-darkborder rounded-2xl overflow-hidden relative flex items-center justify-center">
+                      <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover transform -scale-x-100 ${isVideoOff ? 'hidden' : ''}`} />
+                      {isVideoOff && (
+                        <div className="text-xs text-slate-500 font-bold">Camera Turned Off</div>
+                      )}
+                      <div className="absolute top-3 left-3 bg-black/60 px-3 py-1 rounded-lg text-xs font-bold text-slate-200 border border-white/10">
                         You
                       </div>
                     </div>
                   </div>
 
-                  {/* Video Toolbar */}
-                  <div className="mt-4 bg-darkcard border border-darkborder rounded-2xl p-4 flex items-center justify-between">
+                  {/* Controls Toolbar */}
+                  <div className="bg-darkcard border border-darkborder p-4 rounded-2xl flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <button onClick={nextStranger} className="bg-brand-600 hover:bg-brand-500 text-white px-6 py-3 rounded-xl font-black text-xs uppercase">
-                        NEXT STRANGER
+                      <button onClick={nextStranger} className="bg-brand-600 hover:bg-brand-500 text-white font-black px-6 py-3 rounded-xl text-xs uppercase tracking-wider">
+                        NEXT STRANGER →
                       </button>
-                      <button onClick={stopConversation} className="bg-slate-900 text-slate-300 border border-slate-800 px-4 py-3 rounded-xl font-bold text-xs">
-                        Leave
+                      <button onClick={stopChat} className="bg-slate-900 border border-slate-800 text-slate-300 font-bold px-4 py-3 rounded-xl text-xs">
+                        Leave Chat
                       </button>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setIsMuted(!isMuted)} className="p-3 bg-slate-900 border border-slate-800 text-slate-300 rounded-xl">
-                        <LucideIcon name={isMuted ? 'mic-off' : 'mic'} className="w-4 h-4" />
+                      <button onClick={toggleMute} className={`p-3 rounded-xl border ${isMuted ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-900 border-slate-800 text-slate-300'}`}>
+                        <Icon name={isMuted ? 'mic-off' : 'mic'} className="w-4 h-4" />
                       </button>
-                      <button onClick={() => setReportModalOpen(true)} className="p-3 bg-slate-900 border border-slate-800 text-slate-400 hover:text-red-400 rounded-xl">
-                        <LucideIcon name="flag" className="w-4 h-4" />
+                      <button onClick={toggleVideo} className={`p-3 rounded-xl border ${isVideoOff ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-900 border-slate-800 text-slate-300'}`}>
+                        <Icon name={isVideoOff ? 'video-off' : 'video'} className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Text Chat View */}
+              {viewMode === 'text_chat' && (
+                <div className="w-full max-w-2xl bg-darkcard border border-darkborder rounded-2xl flex flex-col h-[500px] p-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-darkborder mb-3">
+                    <span className="font-extrabold text-sm text-white">Connected to Stranger</span>
+                    <button onClick={nextStranger} className="bg-brand-600 text-white text-xs font-black px-4 py-2 rounded-xl">
+                      NEXT STRANGER
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-3 p-2 bg-slate-950/40 rounded-xl mb-3">
+                    {messages.map((m, idx) => (
+                      <div key={idx} className={`flex flex-col ${m.sender === 'you' ? 'items-end' : 'items-start'}`}>
+                        <div className={`px-4 py-2 rounded-2xl text-xs max-w-xs ${m.sender === 'you' ? 'bg-brand-600 text-white' : 'bg-slate-900 border border-slate-800 text-slate-200'}`}>
+                          {m.text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <form onSubmit={handleSendMessage} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Type a message..."
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      className="flex-1 bg-darkbg border border-darkborder rounded-xl px-4 py-3 text-xs text-white focus:outline-none"
+                    />
+                    <button type="submit" className="bg-brand-600 text-white px-4 py-3 rounded-xl text-xs font-bold">
+                      Send
+                    </button>
+                  </form>
                 </div>
               )}
             </main>
@@ -686,7 +476,7 @@
       }
 
       const root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(<OmyTalkApp />);
+      root.render(<App />);
     </script>
 </body>
 </html>
