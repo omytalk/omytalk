@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmyTalk — Talk to someone you don't know.</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#eef2ff',
+                100: '#e0e7ff',
+                400: '#818cf8',
+                500: '#6366f1',
+                600: '#4f46e5',
+                700: '#4338ca',
+                900: '#312e81',
+              },
+              neon: {
+                cyan: '#06b6d4',
+                emerald: '#10b981',
+                rose: '#f43f5e',
+                amber: '#f59e0b',
+              },
+              darkbg: '#07090E',
+              darkcard: '#0F1523',
+              darkborder: '#1E293B',
+            },
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+              mono: ['Fira Code', 'monospace']
+            },
+            animation: {
+              'radar-pulse': 'radar 2s cubic-bezier(0, 0, 0.2, 1) infinite',
+              'glow-pulse': 'glow 1.5s ease-in-out infinite alternate',
+            },
+            keyframes: {
+              radar: {
+                '0%': { transform: 'scale(0.8)', opacity: '0.8' },
+                '100%': { transform: 'scale(2.2)', opacity: '0' },
+              },
+              glow: {
+                '0%': { boxShadow: '0 0 15px rgba(99, 102, 241, 0.3)' },
+                '100%': { boxShadow: '0 0 30px rgba(99, 102, 241, 0.7)' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <!-- Google Fonts Inter & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <!-- React & Babel CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #07090E;
+        color: #F1F5F9;
+        overflow-x: hidden;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #07090E;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #1E293B;
+        border-radius: 9999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #334155;
+      }
+      .glass-panel {
+        background: rgba(15, 21, 35, 0.85);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+    </style>
+</head>
+<body class="bg-darkbg text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+      // Audio Chime Synthesizer using Web Audio API for feedback
+      const playChime = (type = 'pop') => {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          if (type === 'match_start') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+          } else if (type === 'connected') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+            osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+            gain.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.25);
+          } else if (type === 'send') {
+            osc.frequency.setValueAtTime(440, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.12);
+          } else if (type === 'receive') {
+            osc.frequency.setValueAtTime(700, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+          } else if (type === 'skip') {
+            osc.frequency.setValueAtTime(350, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+          } else {
+            // General Pop
+            osc.frequency.setValueAtTime(500, ctx.currentTime);
+            gain.gain.setValueAtTime(0.05, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.08);
+          }
+        } catch (e) {
+          // Audio context might be restricted before first click
+        }
+      };
+
+      const TOPICS_LIST = [
+        'Technology', 'Gaming', 'Music', 'Movies', 'College', 
+        'Programming', 'Startups', 'Sports', 'Travel', 'Fitness', 
+        'Books', 'Art', 'Photography', 'Life Advice', 'Random'
+      ];
+
+      const STRANGER_POOL = [
+        {
+          id: 'stranger_101',
+          alias: 'Stranger (Tech Enthusiast)',
+          city: 'Tokyo, Japan',
+          interests: ['Technology', 'Programming', 'Gaming'],
+          revealedName: 'Kenji',
+          bio: 'CS Student in Tokyo building web apps & retro games.',
+          responses: [
+            "Hey there! What are you working on or interested in today?",
+            "Nice! I'm currently studying computer science and trying out React 19 features.",
+            "That's awesome. Do you prefer backend systems or frontend UI?",
+            "Totally agree! What's your favorite programming language?",
+            "Haha same here. By the way, where in the world are you connecting from?"
+          ]
+        },
+        {
+          id: 'stranger_102',
+          alias: 'Stranger (Gamer & Music Fan)',
+          city: 'London, UK',
+          interests: ['Gaming', 'Music', 'College'],
+          revealedName: 'Sarah',
+          bio: 'Indie game player, acoustic guitar learner.',
+          responses: [
+            "Yo! How's it going?",
+            "Just listening to some synthwave and chilling after lectures.",
+            "Are you into PC gaming or console?",
+            "Oh sweet! Have you played Hades 2 or Cyberpunk recently?",
+            "Nice taste! It's always fun meeting people with similar vibes on here."
+          ]
+        },
+        {
+          id: 'stranger_103',
+          alias: 'Stranger (Startup Builder)',
+          city: 'San Francisco, USA',
+          interests: ['Startups', 'Technology', 'Artificial Intelligence'],
+          revealedName: 'Alex',
+          bio: 'Building a micro-SaaS product for creator workflows.',
+          responses: [
+            "Hey! What topic did you match on?",
+            "I'm super fascinated by how AI agents are changing developer workflows.",
+            "Have you ever tried building your own app or side project?",
+            "That's high potential! The trick is validating fast before over-engineering.",
+            "Cool chatting with you! Hit Next whenever you want, or we can keep talking."
+          ]
+        },
+        {
+          id: 'stranger_104',
+          alias: 'Stranger (College Student)',
+          city: 'Mumbai, India',
+          interests: ['College', 'Movies', 'Travel'],
+          revealedName: 'Rohan',
+          bio: 'Final year engineering student preparing for tech interviews.',
+          responses: [
+            "Hey friend! What's up?",
+            "Just taking a quick break from exam prep.",
+            "Do you like watching sci-fi movies or series?",
+            "Awesome! Interstellar and Dark are top tier for me.",
+            "Nice talking to you! Hope you have a great day."
+          ]
+        }
+      ];
+
+      const COMMUNITY_HUBS = [
+        { id: 'comm_devs', name: 'Developers & Hackers', online: 3420, icon: 'code', tag: 'Programming', desc: 'Connect with devs, review code ideas, discuss frameworks.' },
+        { id: 'comm_college', name: 'College & University Life', online: 5810, icon: 'graduation-cap', tag: 'College', desc: 'Exams, career advice, dorm life, and study hacks.' },
+        { id: 'comm_ai', name: 'AI & Future Tech', online: 2940, icon: 'bot', tag: 'Technology', desc: 'LLMs, web GPU, robotics, and edge AI discussions.' },
+        { id: 'comm_startups', name: 'Indie Hackers & Startups', online: 1890, icon: 'rocket', tag: 'Startups', desc: 'Share project MVPs, marketing ideas, and feedback.' },
+        { id: 'comm_gaming', name: 'Gamers Lounge', online: 7120, icon: 'gamepad-2', tag: 'Gaming', desc: 'Steam games, esports, co-op partners, and setup flex.' }
+      ];
+
+      const { useState, useEffect, useRef, useMemo } = React;
+
+      // Safe Lucide Icon component wrapper to prevent direct DOM mutation conflicts with React
+      function LucideIcon({ name, className = "w-4 h-4", style = {} }) {
+        const spanRef = useRef(null);
+
+        useEffect(() => {
+          if (spanRef.current && window.lucide) {
+            spanRef.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
+            window.lucide.createIcons({
+              root: spanRef.current
+            });
+          }
+        }, [name, className]);
+
+        return <span ref={spanRef} style={style} className="inline-flex items-center justify-center shrink-0" />;
+      }
+
+      function OmyTalkApp() {
+        // Platform State
+        const [viewMode, setViewMode] = useState('home'); // 'home' | 'matching' | 'text_chat' | 'video_chat' | 'communities' | 'safety'
+        const [activeChatType, setActiveChatType] = useState('text'); // 'text' | 'video'
+        const [selectedInterests, setSelectedInterests] = useState(['Technology', 'Gaming']);
+        const [onlineCount, setOnlineCount] = useState(24819);
+
+        // Chat Engine State
+        const [matchStatus, setMatchStatus] = useState('idle'); // 'searching' | 'connected' | 'disconnected'
+        const [currentStranger, setCurrentStranger] = useState(null);
+        const [messages, setMessages] = useState([]);
+        const [inputMessage, setInputMessage] = useState('');
+        const [strangerIsTyping, setStrangerIsTyping] = useState(false);
+        const [sessionSeconds, setSessionSeconds] = useState(0);
+        const [identityRevealed, setIdentityRevealed] = useState(false);
+        const [identityRequested, setIdentityRequested] = useState(false);
+
+        // Video / Audio Controls State
+        const [isMuted, setIsMuted] = useState(false);
+        const [isVideoOff, setIsVideoOff] = useState(false);
+        const [hasWebcam, setHasWebcam] = useState(false);
+        const [webcamActive, setWebcamActive] = useState(false);
+
+        // Modals & UI Controls
+        const [reportModalOpen, setReportModalOpen] = useState(false);
+        const [reportReason, setReportReason] = useState('Inappropriate behavior');
+        const [toastMessage, setToastMessage] = useState(null);
+        const [blockedCount, setBlockedCount] = useState(0);
+
+        // Refs
+        const chatEndRef = useRef(null);
+        const timerRef = useRef(null);
+        const canvasStrangerRef = useRef(null);
+        const userVideoRef = useRef(null);
+        const localStreamRef = useRef(null);
+
+        // Helper Toast Notice
+        const showToast = (msg) => {
+          setToastMessage(msg);
+          setTimeout(() => setToastMessage(null), 3000);
+        };
+
+        // Live Stranger Counter fluctuation to simulate real platform traffic
+        useEffect(() => {
+          const interval = setInterval(() => {
+            setOnlineCount(prev => prev + Math.floor(Math.random() * 7) - 3);
+          }, 4000);
+          return () => clearInterval(interval);
+        }, []);
+
+        // Auto-scroll chat to bottom
+        useEffect(() => {
+          if (chatEndRef.current) {
+            chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, [messages, strangerIsTyping]);
+
+        // Chat Session Duration Counter
+        useEffect(() => {
+          if (matchStatus === 'connected') {
+            timerRef.current = setInterval(() => {
+              setSessionSeconds(prev => prev + 1);
+            }, 1000);
+          } else {
+            clearInterval(timerRef.current);
+            setSessionSeconds(0);
+          }
+          return () => clearInterval(timerRef.current);
+        }, [matchStatus]);
+
+        const startMatchmaking = (type = 'text') => {
+          playChime('match_start');
+          setActiveChatType(type);
+          setViewMode('matching');
+          setMatchStatus('searching');
+          setCurrentStranger(null);
+          setMessages([]);
+          setIdentityRevealed(false);
+          setIdentityRequested(false);
+
+          // Simulated delay for finding stranger (1.5 - 3s)
+          const matchDelay = Math.floor(Math.random() * 1200) + 1400;
+
+          setTimeout(() => {
+            // Pick stranger from pool matching interests or fallback
+            const candidate = STRANGER_POOL[Math.floor(Math.random() * STRANGER_POOL.length)];
+            setCurrentStranger(candidate);
+            setMatchStatus('connected');
+            setViewMode(type === 'video' ? 'video_chat' : 'text_chat');
+            playChime('connected');
+
+            // Add system welcome message
+            const matchTopicStr = selectedInterests.length > 0 ? selectedInterests.slice(0, 3).join(', ') : 'Random Topic';
+            setMessages([
+              { 
+                id: 'sys_1', 
+                sender: 'system', 
+                text: `You're now connected with a Stranger! Topic matched: [ ${matchTopicStr} ]. Say hello!`, 
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+              }
+            ]);
+
+            // Simulate initial greeting from stranger after 1.2s
+            setTimeout(() => {
+              simulateStrangerResponse(candidate, true);
+            }, 1200);
+
+          }, matchDelay);
+        };
+
+        const nextStranger = () => {
+          playChime('skip');
+          if (matchStatus === 'connected') {
+            showToast('Skipped to next stranger...');
+          }
+          startMatchmaking(activeChatType);
+        };
+
+        const stopConversation = () => {
+          playChime('skip');
+          setMatchStatus('disconnected');
+          setViewMode('home');
+          stopWebcam();
+          showToast('Conversation ended.');
+        };
+
+        const simulateStrangerResponse = (strangerObj, isFirstMessage = false) => {
+          setStrangerIsTyping(true);
+          const typingTime = Math.floor(Math.random() * 1000) + 1200;
+
+          setTimeout(() => {
+            setStrangerIsTyping(false);
+            playChime('receive');
+
+            let replyText = "";
+            if (isFirstMessage) {
+              replyText = strangerObj.responses[0];
+            } else {
+              const remaining = strangerObj.responses.slice(1);
+              replyText = remaining[Math.floor(Math.random() * remaining.length)] || "Haha that's cool! What else are you interested in?";
+            }
+
+            setMessages(prev => [
+              ...prev,
+              {
+                id: 'm_stranger_' + Date.now(),
+                sender: 'stranger',
+                text: replyText,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              }
+            ]);
+          }, typingTime);
+        };
+
+        const handleSendMessage = (e) => {
+          if (e) e.preventDefault();
+          if (!inputMessage.trim() || matchStatus !== 'connected') return;
+
+          playChime('send');
+          const userMsg = inputMessage;
+          const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+          setMessages(prev => [
+            ...prev,
+            { id: 'm_you_' + Date.now(), sender: 'you', text: userMsg, time: timeNow }
+          ]);
+          setInputMessage('');
+
+          // Trigger simulated stranger response if not disconnected
+          if (currentStranger) {
+            setTimeout(() => {
+              simulateStrangerResponse(currentStranger);
+            }, 1000);
+          }
+        };
+
+        const toggleInterest = (topic) => {
+          playChime('pop');
+          if (selectedInterests.includes(topic)) {
+            if (selectedInterests.length > 1) {
+              setSelectedInterests(selectedInterests.filter(t => t !== topic));
+            } else {
+              showToast('Keep at least 1 topic selected, or choose Random!');
+            }
+          } else {
+            setSelectedInterests([...selectedInterests, topic]);
+          }
+        };
+
+        const requestIdentityReveal = () => {
+          playChime('pop');
+          setIdentityRequested(true);
+          showToast('Sent identity reveal request to Stranger...');
+
+          setTimeout(() => {
+            setIdentityRevealed(true);
+            playChime('connected');
+            setMessages(prev => [
+              ...prev,
+              {
+                id: 'sys_reveal_' + Date.now(),
+                sender: 'system',
+                text: `✨ Both of you agreed to reveal identities! Stranger's real name is ${currentStranger?.revealedName} from ${currentStranger?.city}.`,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              }
+            ]);
+          }, 1800);
+        };
+
+        const handleBlockStranger = () => {
+          setBlockedCount(prev => prev + 1);
+          setReportModalOpen(false);
+          showToast('Stranger blocked & reported. Searching new match...');
+          nextStranger();
+        };
+
+        const startWebcam = async () => {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            localStreamRef.current = stream;
+            if (userVideoRef.current) {
+              userVideoRef.current.srcObject = stream;
+            }
+            setHasWebcam(true);
+            setWebcamActive(true);
+          } catch (err) {
+            console.log('Webcam not permitted or unavailable, running preview fallback.');
+            setHasWebcam(false);
+          }
+        };
+
+        const stopWebcam = () => {
+          if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach(track => track.stop());
+            localStreamRef.current = null;
+          }
+          setWebcamActive(false);
+        };
+
+        // Render animated video canvas for simulated Stranger video feed
+        useEffect(() => {
+          if (viewMode === 'video_chat' && canvasStrangerRef.current) {
+            const canvas = canvasStrangerRef.current;
+            const ctx = canvas.getContext('2d');
+            let animId;
+            let frame = 0;
+
+            const renderVideoFrame = () => {
+              frame++;
+              ctx.fillStyle = '#0F172A';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+              // Draw subtle matrix / cyber video grid
+              ctx.strokeStyle = 'rgba(99, 102, 241, 0.15)';
+              ctx.lineWidth = 1;
+              for (let i = 0; i < canvas.width; i += 30) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+              }
+
+              // Draw animated dynamic silhouette avatar
+              const centerX = canvas.width / 2;
+              const centerY = canvas.height / 2 - 10;
+              const bounce = Math.sin(frame * 0.05) * 5;
+
+              // Pulsing glow aura
+              const gradient = ctx.createRadialGradient(centerX, centerY, 20, centerX, centerY, 120);
+              gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+              gradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
+              ctx.fillStyle = gradient;
+              ctx.beginPath();
+              ctx.arc(centerX, centerY, 120, 0, Math.PI * 2);
+              ctx.fill();
+
+              // Head circle
+              ctx.fillStyle = '#6366F1';
+              ctx.beginPath();
+              ctx.arc(centerX, centerY - 25 + bounce, 35, 0, Math.PI * 2);
+              ctx.fill();
+
+              // Shoulders
+              ctx.beginPath();
+              ctx.arc(centerX, centerY + 65 + bounce, 65, Math.PI, 0, false);
+              ctx.fill();
+
+              // Live audio waveform bars overlay
+              ctx.fillStyle = '#06B6D4';
+              for (let b = 0; b < 12; b++) {
+                const barHeight = Math.abs(Math.sin(frame * 0.1 + b)) * 25 + 5;
+                ctx.fillRect(centerX - 60 + b * 10, canvas.height - 35, 6, barHeight);
+              }
+
+              // Simulated camera overlay text
+              ctx.fillStyle = '#94A3B8';
+              ctx.font = '12px Fira Code, monospace';
+              ctx.fillText(`STRANGER [${currentStranger?.alias || 'LIVE FEED'}]`, 15, 25);
+              ctx.fillText(`FPS: 60 • HD 1080p`, canvas.width - 140, 25);
+
+              animId = requestAnimationFrame(renderVideoFrame);
+            };
+
+            renderVideoFrame();
+
+            return () => cancelAnimationFrame(animId);
+          }
+        }, [viewMode, currentStranger]);
+
+        // Keyboard hotkey listeners (Esc = Next)
+        useEffect(() => {
+          const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && (viewMode === 'text_chat' || viewMode === 'video_chat')) {
+              nextStranger();
+            }
+          };
+          window.addEventListener('keydown', handleKeyDown);
+          return () => window.removeEventListener('keydown', handleKeyDown);
+        }, [viewMode, activeChatType]);
+
+        // Format Session Timer
+        const formatTimer = (secs) => {
+          const m = Math.floor(secs / 60);
+          const s = secs % 60;
+          return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        };
+
+        return (
+          <div className="min-h-screen bg-darkbg text-slate-100 flex flex-col justify-between">
+            {/* Top Global Navigation Bar */}
+            <header className="sticky top-0 z-40 bg-darkcard/90 backdrop-blur-md border-b border-darkborder px-4 lg:px-8 py-3.5 flex items-center justify-between">
+              {/* Brand Logo & Live Counter */}
+              <div className="flex items-center gap-4">
+                <div 
+                  onClick={() => stopConversation()}
+                  className="flex items-center gap-3 cursor-pointer group">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-extrabold text-xl shadow-lg shadow-brand-500/30 text-white group-hover:scale-105 transition-transform">
+                    O
+                  </div>
+                  <div>
+                    <span className="font-black text-xl tracking-tight text-white flex items-center gap-2">
+                      OmyTalk
+                      <span className="text-[10px] font-bold uppercase bg-brand-500/20 text-brand-400 px-2 py-0.5 rounded border border-brand-500/30">
+                        RANDOM
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-slate-400 block -mt-1 font-medium">Talk to someone you don't know.</span>
+                  </div>
+                </div>
+
+                {/* Live Online Badge */}
+                <div className="hidden sm:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span>{onlineCount.toLocaleString()} strangers online</span>
+                </div>
+              </div>
+
+              {/* Navigation Menu */}
+              <div className="flex items-center gap-2 sm:gap-4">
+                <button
+                  onClick={() => { setViewMode('home'); playChime('pop'); }}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                    viewMode === 'home' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
+                  }`}>
+                  Random Chat
+                </button>
+
+                <button
+                  onClick={() => { setViewMode('communities'); playChime('pop'); }}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                    viewMode === 'communities' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
+                  }`}>
+                  Communities
+                </button>
+
+                <button
+                  onClick={() => { setViewMode('safety'); playChime('pop'); }}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                    viewMode === 'safety' ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30' : 'text-slate-400 hover:text-white'
+                  }`}>
+                  <LucideIcon name="shield" className="w-3.5 h-3.5" />
+                  Safety Center
+                </button>
+              </div>
+            </header>
+
+            {/* MAIN CONTENT AREA */}
+            <main className="flex-1 flex flex-col">
+
+              {/* 1. HOMEPAGE HERO & MODE SELECTION */}
+              {viewMode === 'home' && (
+                <div className="max-w-6xl mx-auto w-full px-4 lg:px-8 py-10 flex-1 flex flex-col justify-center items-center text-center">
+                  
+                  {/* Hero Tagline */}
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-semibold mb-6">
+                    <LucideIcon name="sparkles" className="w-4 h-4 text-brand-400" />
+                    Modern, Safer Random Matching Platform
+                  </div>
+
+                  <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white max-w-3xl leading-tight">
+                    Talk to someone <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 via-indigo-300 to-neon-cyan">completely new.</span>
+                  </h1>
+
+                  <p className="mt-4 text-base sm:text-lg text-slate-400 max-w-xl leading-relaxed">
+                    Meet random people worldwide. Start instant conversations. Discover new perspectives without endless scrolling or algorithms.
+                  </p>
+
+                  {/* Primary Call to Action Button */}
+                  <div className="mt-8 flex flex-wrap justify-center gap-4">
+                    <button
+                      onClick={() => startMatchmaking('text')}
+                      className="bg-brand-600 hover:bg-brand-500 text-white px-8 py-4 rounded-2xl font-extrabold text-base transition-all shadow-xl shadow-brand-600/30 transform hover:-translate-y-0.5 flex items-center gap-3">
+                      <LucideIcon name="zap" className="w-5 h-5 fill-white" />
+                      Start Talking Now
+                    </button>
+                    
+                    <button
+                      onClick={() => startMatchmaking('video')}
+                      className="bg-slate-900 hover:bg-slate-800 text-slate-100 border border-slate-700 px-7 py-4 rounded-2xl font-bold text-base transition-all flex items-center gap-2.5">
+                      <LucideIcon name="video" className="w-5 h-5 text-neon-cyan" />
+                      Start Video Chat
+                    </button>
+                  </div>
+
+                  {/* TOPIC / INTEREST SELECTOR BAR */}
+                  <div className="mt-12 w-full max-w-3xl bg-darkcard border border-darkborder rounded-3xl p-6 shadow-2xl text-left">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                          <LucideIcon name="sliders" className="w-4 h-4 text-brand-400" />
+                          What do you want to talk about? (Optional)
+                        </h3>
+                        <p className="text-xs text-slate-400">OmyTalk will match you with strangers who share your topics.</p>
+                      </div>
+
+                      <button
+                        onClick={() => { setSelectedInterests(['Random']); showToast('Matched with completely random strangers!'); }}
+                        className="text-xs text-brand-400 hover:underline font-semibold shrink-0">
+                        Match Me Randomly
+                      </button>
+                    </div>
+
+                    {/* Topic Chips */}
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {TOPICS_LIST.map(topic => {
+                        const isSelected = selectedInterests.includes(topic);
+                        return (
+                          <button
+                            key={topic}
+                            onClick={() => toggleInterest(topic)}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                              isSelected 
+                                ? 'bg-brand-600 text-white shadow-md shadow-brand-600/20' 
+                                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                            }`}>
+                            {isSelected && <LucideIcon name="check" className="w-3.5 h-3.5" />}
+                            {topic}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* CHOOSE YOUR EXPERIENCE TILES */}
+                  <div className="grid md:grid-cols-3 gap-6 mt-12 w-full max-w-4xl text-left">
+                    {/* Tile 1 */}
+                    <div 
+                      onClick={() => startMatchmaking('text')}
+                      className="bg-darkcard/60 hover:bg-darkcard border border-darkborder hover:border-brand-500/50 p-6 rounded-2xl cursor-pointer transition-all group">
+                      <div className="w-12 h-12 rounded-xl bg-brand-500/10 text-brand-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <LucideIcon name="message-square" className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-extrabold text-white text-base">Random Text Chat</h3>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Instant text conversations. Fast, anonymous, and effortless to skip to the next person.
+                      </p>
+                    </div>
+
+                    {/* Tile 2 */}
+                    <div 
+                      onClick={() => startMatchmaking('video')}
+                      className="bg-darkcard/60 hover:bg-darkcard border border-darkborder hover:border-neon-cyan/50 p-6 rounded-2xl cursor-pointer transition-all group">
+                      <div className="w-12 h-12 rounded-xl bg-cyan-500/10 text-neon-cyan flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <LucideIcon name="video" className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-extrabold text-white text-base">Random Video Chat</h3>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Face-to-face random connections with built-in camera controls and instant skip buttons.
+                      </p>
+                    </div>
+
+                    {/* Tile 3 */}
+                    <div 
+                      onClick={() => setViewMode('communities')}
+                      className="bg-darkcard/60 hover:bg-darkcard border border-darkborder hover:border-emerald-500/50 p-6 rounded-2xl cursor-pointer transition-all group">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <LucideIcon name="users" className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-extrabold text-white text-base">Interest Communities</h3>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Match with strangers inside dedicated rooms for Developers, College Students, or AI.
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+
+              {/* 2. MATCHING RADAR SCREEN */}
+              {viewMode === 'matching' && (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                  <div className="relative mb-10 flex items-center justify-center">
+                    {/* Pulsing Radar Rings */}
+                    <div className="absolute w-40 h-40 rounded-full bg-brand-500/20 animate-radar-pulse"></div>
+                    <div className="absolute w-60 h-60 rounded-full bg-brand-500/10 animate-radar-pulse" style={{ animationDelay: '0.6s' }}></div>
+
+                    {/* Center Radar Globe Icon */}
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center text-white shadow-2xl relative z-10 animate-glow-pulse">
+                      <LucideIcon name="compass" className="w-12 h-12 animate-spin" style={{ animationDuration: '8s' }} />
+                    </div>
+                  </div>
+
+                  <h2 className="text-2xl font-black text-white">Finding someone to talk to...</h2>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Searching for an available stranger matching <span className="text-brand-300 font-semibold">{selectedInterests.join(', ')}</span>...
+                  </p>
+
+                  <div className="mt-8 flex gap-3">
+                    <button
+                      onClick={stopConversation}
+                      className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 px-6 py-2.5 rounded-xl text-xs font-semibold transition-all">
+                      Cancel Search
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. RANDOM TEXT CHAT WORKSPACE */}
+              {viewMode === 'text_chat' && (
+                <div className="max-w-4xl mx-auto w-full px-4 py-4 flex-1 flex flex-col">
+                  {/* Chat Top Banner */}
+                  <div className="bg-darkcard border border-darkborder rounded-2xl p-4 mb-4 flex items-center justify-between shadow-md">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300 font-bold border border-slate-700">
+                        <LucideIcon name="user" className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-white">
+                            {identityRevealed ? currentStranger?.revealedName : (currentStranger?.alias || 'Stranger')}
+                          </span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                          <span className="text-[10px] text-slate-500 font-mono">{formatTimer(sessionSeconds)}</span>
+                        </div>
+                        
+                        <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+                          <span>Interests: {currentStranger?.interests.join(' • ')}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      {!identityRevealed && (
+                        <button
+                          onClick={requestIdentityReveal}
+                          disabled={identityRequested}
+                          className="hidden sm:flex bg-brand-500/10 hover:bg-brand-500/20 text-brand-300 border border-brand-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold items-center gap-1.5 transition-all">
+                          <LucideIcon name="sparkles" className="w-3.5 h-3.5" />
+                          {identityRequested ? 'Reveal Requested...' : 'Reveal Name'}
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => setReportModalOpen(true)}
+                        className="p-2 text-slate-400 hover:text-red-400 rounded-xl hover:bg-slate-800 transition-colors"
+                        title="Report Stranger">
+                        <LucideIcon name="flag" className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Messages Stream Pane */}
+                  <div className="flex-1 bg-darkcard/50 border border-darkborder rounded-2xl p-4 overflow-y-auto space-y-3 min-h-[350px] max-h-[55vh]">
+                    {messages.map((msg) => {
+                      if (msg.sender === 'system') {
+                        return (
+                          <div key={msg.id} className="text-center my-3">
+                            <span className="text-[11px] font-medium bg-slate-900 border border-slate-800 text-slate-400 px-3.5 py-1.5 rounded-full inline-block">
+                              {msg.text}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      const isYou = msg.sender === 'you';
+                      return (
+                        <div key={msg.id} className={`flex flex-col ${isYou ? 'items-end' : 'items-start'}`}>
+                          <div className={`max-w-md px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                            isYou
+                              ? 'bg-brand-600 text-white rounded-br-none shadow-md'
+                              : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'
+                          }`}>
+                            {msg.text}
+                          </div>
+                          <span className="text-[10px] text-slate-500 mt-1 px-1">
+                            {isYou ? 'You' : (identityRevealed ? currentStranger?.revealedName : 'Stranger')} • {msg.time}
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                    {strangerIsTyping && (
+                      <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-900/80 px-3 py-2 rounded-xl w-fit border border-slate-800">
+                        <span className="font-semibold text-brand-300">Stranger</span> is typing
+                        <span className="flex gap-1">
+                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+                        </span>
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {/* Chat Input & Next Action Controls */}
+                  <div className="mt-4 flex flex-col sm:flex-row items-center gap-3">
+                    {/* NEXT / STOP BUTTONS */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                      <button
+                        onClick={nextStranger}
+                        className="flex-1 sm:flex-initial bg-brand-600 hover:bg-brand-500 text-white px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-brand-600/30 transition-all">
+                        <span>NEXT</span>
+                        <LucideIcon name="arrow-right" className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={stopConversation}
+                        className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 px-4 py-3 rounded-xl font-bold text-xs transition-colors">
+                        Stop
+                      </button>
+                    </div>
+
+                    {/* Message Composer */}
+                    <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2 w-full">
+                      <input
+                        type="text"
+                        placeholder="Type a message to stranger... (Press Enter to send)"
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        className="flex-1 bg-darkcard border border-darkborder text-xs text-white px-4 py-3 rounded-xl focus:outline-none focus:border-brand-500 transition-colors"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-slate-800 hover:bg-slate-700 text-white p-3 rounded-xl transition-colors">
+                        <LucideIcon name="send" className="w-4 h-4" />
+                      </button>
+                    </form>
+                  </div>
+                  <div className="text-[10px] text-slate-500 text-center mt-2 font-mono">
+                    Press <span className="text-slate-300">Esc</span> anytime to jump to the next stranger.
+                  </div>
+                </div>
+              )}
+
+              {/* 4. RANDOM VIDEO CHAT WORKSPACE */}
+              {viewMode === 'video_chat' && (
+                <div className="max-w-5xl mx-auto w-full px-4 py-4 flex-1 flex flex-col justify-between">
+                  {/* Main Video View Canvas */}
+                  <div className="grid md:grid-cols-2 gap-4 flex-1 min-h-[420px]">
+                    
+                    {/* Stranger's Video Display Pane */}
+                    <div className="bg-darkcard border border-darkborder rounded-2xl overflow-hidden relative flex items-center justify-center">
+                      <canvas 
+                        ref={canvasStrangerRef} 
+                        width="640" 
+                        height="480" 
+                        className="w-full h-full object-cover">
+                      </canvas>
+
+                      {/* Video Status Overlay */}
+                      <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-xs flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="font-bold text-white">{currentStranger?.alias || 'Stranger'}</span>
+                      </div>
+
+                      <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg text-[11px] font-mono text-slate-400">
+                        {formatTimer(sessionSeconds)}
+                      </div>
+                    </div>
+
+                    {/* Self Video Display Pane */}
+                    <div className="bg-darkcard border border-darkborder rounded-2xl overflow-hidden relative flex items-center justify-center bg-slate-950">
+                      {webcamActive ? (
+                        <video ref={userVideoRef} autoPlay playsInline muted className="w-full h-full object-cover transform -scale-x-100"></video>
+                      ) : (
+                        <div className="text-center p-6">
+                          <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-slate-500 mb-3">
+                            <LucideIcon name="video-off" className="w-8 h-8" />
+                          </div>
+                          <h4 className="text-xs font-bold text-slate-300">Camera Off or Preview Mode</h4>
+                          <button
+                            onClick={startWebcam}
+                            className="mt-3 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-md">
+                            Enable Camera
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-xs font-bold text-slate-300">
+                        You
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Video Chat Bottom Control Toolbar */}
+                  <div className="mt-4 bg-darkcard border border-darkborder rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={nextStranger}
+                        className="bg-brand-600 hover:bg-brand-500 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-brand-600/30">
+                        <span>NEXT STRANGER</span>
+                        <LucideIcon name="arrow-right" className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={stopConversation}
+                        className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 px-4 py-3 rounded-xl font-bold text-xs">
+                        Leave
+                      </button>
+                    </div>
+
+                    {/* Media Mute/Camera Toggles */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setIsMuted(!isMuted); showToast(isMuted ? 'Microphone Unmuted' : 'Microphone Muted'); }}
+                        className={`p-3 rounded-xl border transition-colors ${
+                          isMuted ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-slate-900 border-slate-800 text-slate-300'
+                        }`}>
+                        <LucideIcon name={isMuted ? 'mic-off' : 'mic'} className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (webcamActive) stopWebcam();
+                          else startWebcam();
+                        }}
+                        className={`p-3 rounded-xl border transition-colors ${
+                          !webcamActive ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-slate-900 border-slate-800 text-slate-300'
+                        }`}>
+                        <LucideIcon name={webcamActive ? 'video' : 'video-off'} className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => setReportModalOpen(true)}
+                        className="p-3 bg-slate-900 border border-slate-800 text-slate-400 hover:text-red-400 rounded-xl"
+                        title="Report Stranger">
+                        <LucideIcon name="flag" className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. COMMUNITIES HUB VIEW */}
+              {viewMode === 'communities' && (
+                <div className="max-w-5xl mx-auto w-full px-4 lg:px-8 py-8 flex-1">
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-black text-white">Interest Communities</h2>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Targeted random matching rooms. Connect with strangers who care about specific fields.
+                    </p>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {COMMUNITY_HUBS.map(comm => (
+                      <div key={comm.id} className="bg-darkcard border border-darkborder hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all">
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="w-10 h-10 rounded-xl bg-brand-500/10 text-brand-400 flex items-center justify-center">
+                              <LucideIcon name={comm.icon} className="w-5 h-5" />
+                            </div>
+                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                              {comm.online} Online
+                            </span>
+                          </div>
+
+                          <h3 className="font-extrabold text-base text-white">{comm.name}</h3>
+                          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">{comm.desc}</p>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setSelectedInterests([comm.tag]);
+                            startMatchmaking('text');
+                          }}
+                          className="mt-5 w-full bg-slate-900 hover:bg-brand-600 text-slate-200 hover:text-white border border-slate-800 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+                          <LucideIcon name="zap" className="w-3.5 h-3.5" />
+                          Match in {comm.tag}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 6. SAFETY CENTER VIEW */}
+              {viewMode === 'safety' && (
+                <div className="max-w-3xl mx-auto w-full px-4 py-8 flex-1">
+                  <div className="bg-darkcard border border-darkborder rounded-3xl p-6 sm:p-8 space-y-6">
+                    <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+                      <div className="w-12 h-12 rounded-2xl bg-brand-500/20 text-brand-300 flex items-center justify-center">
+                        <LucideIcon name="shield-check" className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-extrabold text-white">OmyTalk Safety Center</h2>
+                        <p className="text-xs text-slate-400">Rules & best practices for safe random conversations.</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 text-xs text-slate-300 leading-relaxed">
+                      <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                        <h4 className="font-bold text-white text-sm mb-1">1. Keep Personal Data Private</h4>
+                        <p className="text-slate-400">Never share your phone number, real home address, financial info, or passwords with strangers.</p>
+                      </div>
+
+                      <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                        <h4 className="font-bold text-white text-sm mb-1">2. Instant Skip & Block</h4>
+                        <p className="text-slate-400">If anyone makes you uncomfortable, press <span className="text-brand-400 font-bold">NEXT</span> or use the Flag icon to immediately block and report them.</p>
+                      </div>
+
+                      <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                        <h4 className="font-bold text-white text-sm mb-1">3. Strict Zero Tolerance Moderation</h4>
+                        <p className="text-slate-400">Nudity, sexual harassment, hate speech, or scamming results in permanent IP banning from OmyTalk.</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex justify-end">
+                      <button
+                        onClick={() => setViewMode('home')}
+                        className="bg-brand-600 hover:bg-brand-500 text-white px-6 py-2.5 rounded-xl text-xs font-semibold">
+                        Back to Random Chat
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </main>
+
+            {/* MODALS */}
+            {reportModalOpen && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-darkcard border border-darkborder rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <h3 className="font-extrabold text-base text-white flex items-center gap-2">
+                      <LucideIcon name="flag" className="w-4 h-4 text-red-400" />
+                      Report / Block Stranger
+                    </h3>
+                    <button onClick={() => setReportModalOpen(false)} className="text-slate-500 hover:text-white">
+                      <LucideIcon name="x" className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    Why are you reporting this stranger? This will instantly disconnect you and block re-matching.
+                  </p>
+
+                  <select
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 text-xs text-white rounded-xl p-3 focus:outline-none">
+                    <option>Inappropriate behavior</option>
+                    <option>Nudity or sexual content</option>
+                    <option>Harassment or hate speech</option>
+                    <option>Spam or commercial scams</option>
+                  </select>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      onClick={() => setReportModalOpen(false)}
+                      className="px-4 py-2 text-xs font-semibold text-slate-400">
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleBlockStranger}
+                      className="bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-xl text-xs font-bold">
+                      Block & Match Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Toast Floating Notification */}
+            {toastMessage && (
+              <div className="fixed bottom-6 right-6 bg-slate-900 border border-brand-500/40 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2 animate-bounce">
+                <LucideIcon name="info" className="w-4 h-4 text-brand-400" />
+                {toastMessage}
+              </div>
+            )}
+
+            {/* Simple Footer */}
+            <footer className="border-t border-slate-800/80 py-4 px-6 text-center text-[11px] text-slate-500">
+              OmyTalk — Talk to someone you don't know • Safe & Spontaneous Random Chat
+            </footer>
+          </div>
+        );
+      }
+
+      const rootElement = document.getElementById('root');
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(<OmyTalkApp />);
+    </script>
+</body>
+</html>
